@@ -28,7 +28,11 @@ func main() {
 	}
 
 	app := fiber.New()
-	app.Use(cors.New())
+
+	app.Use(cors.New(cors.Config{
+		AllowCredentials: true,
+	}))
+
 	app.Static("/images", "./images")
 
 	app.Post("/upload", handleImageUpload)
@@ -121,13 +125,14 @@ func handleImageUpload(c *fiber.Ctx) error {
 		"header":    file.Header,
 		"size":      file.Size,
 	}
+
 	if fileSizeMB > 1 {
 		log.Printf("%s uploaded %s with %.2f MB", ip, image, fileSizeMB)
 	} else {
 		log.Printf("%s uploaded %s with %.2f KB", ip, image, fileSizeMB*1024)
 	}
 
-	return c.JSON(fiber.Map{"status": 201, "message": "image uploaded successfully", "data": imageData})
+	return c.Status(201).JSON(fiber.Map{"data": imageData})
 }
 
 func handleImageDelete(c *fiber.Ctx) error {
