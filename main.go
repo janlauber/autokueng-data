@@ -17,7 +17,7 @@ var SecretKey string
 var UploadSecret string
 
 func main() {
-	SecretKey = os.Getenv("SECRET_KEY")
+	SecretKey = os.Getenv("JWT_SECRET_KEY")
 	if SecretKey == "" {
 		panic("SECRET_KEY is not set")
 	}
