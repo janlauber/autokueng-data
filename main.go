@@ -19,12 +19,7 @@ var UploadSecret string
 func main() {
 	SecretKey = os.Getenv("JWT_SECRET_KEY")
 	if SecretKey == "" {
-		panic("SECRET_KEY is not set")
-	}
-
-	UploadSecret = os.Getenv("UPLOAD_SECRET")
-	if UploadSecret == "" {
-		panic("UPLOAD_SECRET is not set")
+		panic("JWT_SECRET_KEY is not set, must be the same as the one used in the backend api")
 	}
 
 	app := fiber.New()
@@ -62,13 +57,14 @@ func handleImageUpload(c *fiber.Ctx) error {
 		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
 	}
 
-	//
+	// Parse the token and validate it
 	token, _ := jwt.Parse(cookie, func(token *jwt.Token) (interface{}, error) {
+		_, ok := token.Method.(*jwt.SigningMethodHMAC)
+		if !ok {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
 		return []byte(SecretKey), nil
 	})
-
-	// Check if the token is valid
-	validateTokenData(token)
 
 	if !token.Valid {
 		return c.Status(401).JSON(fiber.Map{
