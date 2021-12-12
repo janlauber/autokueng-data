@@ -52,7 +52,7 @@ func validateTokenData(token *jwt.Token) {
 
 func handleImageUpload(c *fiber.Ctx) error {
 
-	cookie := c.Cookies("jwt")
+	cookie := c.Cookies("jwt-autokueng-api")
 	if cookie == "" {
 		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
 	}
@@ -95,7 +95,7 @@ func handleImageUpload(c *fiber.Ctx) error {
 
 	// error if file type is not png or jpg
 	fileType := strings.Split(file.Filename, ".")
-	if fileType[1] != "png" && fileType[1] != "jpg" {
+	if fileType[len(fileType)-1] != "png" && fileType[len(fileType)-1] != "jpg" {
 		return c.Status(400).JSON(fiber.Map{
 			"status":  400,
 			"message": "file type is not ending on .png or .jpg",
@@ -104,7 +104,7 @@ func handleImageUpload(c *fiber.Ctx) error {
 
 	uniqueId := uuid.New()
 	filename := strings.Replace(uniqueId.String(), "-", "-", -1)
-	fileExt := strings.Split(file.Filename, ".")[1]
+	fileExt := strings.Split(file.Filename, ".")[len(strings.Split(file.Filename, "."))-1]
 	image := fmt.Sprintf("%s.%s", filename, fileExt)
 	err = c.SaveFile(file, fmt.Sprintf("./images/%s", image))
 
@@ -134,7 +134,7 @@ func handleImageUpload(c *fiber.Ctx) error {
 func handleImageDelete(c *fiber.Ctx) error {
 	// Validate the token
 
-	cookie := c.Cookies("jwt")
+	cookie := c.Cookies("jwt-autokueng-api")
 	if cookie == "" {
 		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
 	}
