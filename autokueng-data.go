@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -38,33 +39,14 @@ func main() {
 
 }
 
-func validateTokenData(token *jwt.Token) {
-	claims := token.Claims.(jwt.MapClaims)
-
-	data := claims["data"].(map[string]interface{})
-	uploadSecret := data["uploadSecret"].(string)
-
-	if uploadSecret != UploadSecret {
-		token.Valid = false
-	}
-	token.Valid = true
-}
-
 func handleImageUpload(c *fiber.Ctx) error {
 
-	cookie := c.Cookies("jwt-autokueng-api")
-	if cookie == "" {
+	// Validate the token
+
+	token, err := CheckAuth(c)
+	if err != nil {
 		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
 	}
-
-	// Parse the token and validate it
-	token, _ := jwt.Parse(cookie, func(token *jwt.Token) (interface{}, error) {
-		_, ok := token.Method.(*jwt.SigningMethodHMAC)
-		if !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
-		}
-		return []byte(SecretKey), nil
-	})
 
 	if !token.Valid {
 		return c.Status(401).JSON(fiber.Map{
@@ -95,10 +77,10 @@ func handleImageUpload(c *fiber.Ctx) error {
 
 	// error if file type is not png or jpg
 	fileType := strings.Split(file.Filename, ".")
-	if fileType[len(fileType)-1] != "png" && fileType[len(fileType)-1] != "jpg" {
+	if fileType[len(fileType)-1] != "png" && fileType[len(fileType)-1] != "jpg" && fileType[len(fileType)-1] != "jpeg" {
 		return c.Status(400).JSON(fiber.Map{
 			"status":  400,
-			"message": "file type is not ending on .png or .jpg",
+			"message": "file type is not ending on .png or .jpg or .jpeg",
 		})
 	}
 
@@ -134,18 +116,10 @@ func handleImageUpload(c *fiber.Ctx) error {
 func handleImageDelete(c *fiber.Ctx) error {
 	// Validate the token
 
-	cookie := c.Cookies("jwt-autokueng-api")
-	if cookie == "" {
+	token, err := CheckAuth(c)
+	if err != nil {
 		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
 	}
-
-	// Parse the token
-	token, _ := jwt.Parse(cookie, func(token *jwt.Token) (interface{}, error) {
-		return []byte(SecretKey), nil
-	})
-
-	// Check if the token is valid
-	validateTokenData(token)
 
 	if !token.Valid {
 		return c.Status(401).JSON(fiber.Map{
@@ -158,7 +132,7 @@ func handleImageDelete(c *fiber.Ctx) error {
 	ip := c.IP()
 
 	imageName := c.Params("imageName")
-	err := os.Remove(fmt.Sprintf("./images/%s", imageName))
+	err = os.Remove(fmt.Sprintf("./images/%s", imageName))
 
 	if err != nil {
 		log.Println("image delete error: ", err)
@@ -166,4 +140,40 @@ func handleImageDelete(c *fiber.Ctx) error {
 	}
 	log.Printf("%s deleted %s", ip, imageName)
 	return c.JSON(fiber.Map{"status": 200, "message": "image deleted successfully"})
+}
+
+func CheckAuth(c *fiber.Ctx) (*jwt.Token, error) {
+	var token *jwt.Token
+	var tokenString string
+	var err error
+
+	bearerToken := c.Get("Authorization")
+
+	bearerTokenSplit := strings.Split(bearerToken, " ")
+	if len(bearerTokenSplit) != 2 {
+		return token, errors.New("Invalid token")
+	} else {
+		tokenString = bearerTokenSplit[1]
+	}
+
+	if len(tokenString) == 0 {
+		return token, errors.New("Invalid bearer token")
+	}
+
+	token, err = jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(SecretKey), nil
+	})
+
+	if err != nil {
+		return token, errors.New("Invalid token")
+	}
+
+	if token == nil || !token.Valid {
+		return token, errors.New("Invalid token")
+	}
+
+	return token, nil
 }
