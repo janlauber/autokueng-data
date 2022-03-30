@@ -16,11 +16,17 @@ import (
 // SecretKey is the secret key used to sign the JWT token
 var SecretKey string
 var UploadSecret string
+var URL string
 
 func main() {
 	SecretKey = os.Getenv("JWT_SECRET_KEY")
 	if SecretKey == "" {
 		panic("JWT_SECRET_KEY is not set, must be the same as the one used in the backend api")
+	}
+
+	URL = os.Getenv("URL")
+	if URL == "" {
+		URL = "http://localhost:9000"
 	}
 
 	app := fiber.New()
@@ -33,7 +39,7 @@ func main() {
 
 	app.Post("/upload", handleImageUpload)
 
-	app.Delete("/delete/:imageName", handleImageDelete)
+	app.Delete("/images/:imageName", handleImageDelete)
 
 	log.Fatal(app.Listen(":9000"))
 
@@ -75,9 +81,9 @@ func handleImageUpload(c *fiber.Ctx) error {
 		})
 	}
 
-	// error if file type is not png or jpg
+	// error if file type is not png or jpg or jpeg or gif
 	fileType := strings.Split(file.Filename, ".")
-	if fileType[len(fileType)-1] != "png" && fileType[len(fileType)-1] != "jpg" && fileType[len(fileType)-1] != "jpeg" {
+	if fileType[len(fileType)-1] != "png" && fileType[len(fileType)-1] != "jpg" && fileType[len(fileType)-1] != "jpeg" && fileType[len(fileType)-1] != "gif" {
 		return c.Status(400).JSON(fiber.Map{
 			"status":  400,
 			"message": "file type is not ending on .png or .jpg or .jpeg",
@@ -95,7 +101,7 @@ func handleImageUpload(c *fiber.Ctx) error {
 		return c.Status(500).SendString("image upload error")
 	}
 
-	imageUrl := fmt.Sprintf("http://localhost:9000/images/%s", image)
+	imageUrl := fmt.Sprintf("%s/images/%s", URL, image)
 
 	imageData := map[string]interface{}{
 		"imageName": image,

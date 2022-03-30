@@ -10,6 +10,7 @@ The api to upload images and other data and serve them via http for the autokuen
 ```bash
 # must be the same as in autokueng backend api
 export JWT_SECRET_KEY=<secret>
+export URL=http://localhost:9000
 ```
 
 ### Persistent storage
