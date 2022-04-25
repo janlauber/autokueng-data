@@ -35,6 +35,10 @@ func main() {
 		AllowCredentials: true,
 	}))
 
+	app.Get("/healthz", func(c *fiber.Ctx) error {
+		return c.SendString("OK")
+	})
+
 	app.Static("/images", "./images")
 
 	app.Post("/upload", handleImageUpload)
