@@ -33,6 +33,7 @@ func main() {
 
 	app.Use(cors.New(cors.Config{
 		AllowCredentials: true,
+		AllowOrigins:     "*",
 	}))
 
 	app.Get("/healthz", func(c *fiber.Ctx) error {
