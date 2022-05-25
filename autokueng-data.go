@@ -17,6 +17,16 @@ import (
 var SecretKey string
 var UploadSecret string
 var URL string
+var corsString string
+
+func init() {
+	corsString = os.Getenv("CORS_ALLOWED_ORIGINS")
+	if corsString == "" {
+		corsString = "*"
+		// log
+		log.Default().Println("CORS_ALLOWED_ORIGINS is not set, allowing all origins")
+	}
+}
 
 func main() {
 	SecretKey = os.Getenv("JWT_SECRET_KEY")
@@ -33,8 +43,7 @@ func main() {
 
 	app.Use(cors.New(cors.Config{
 		AllowCredentials: true,
-		AllowOrigins:     "autokueng.ch",
-		AllowMethods:     "GET,POST,HEAD,PUT,DELETE,PATCH",
+		AllowOrigins:     corsString,
 	}))
 
 	app.Get("/healthz", func(c *fiber.Ctx) error {
