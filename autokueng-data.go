@@ -39,7 +39,9 @@ func main() {
 		URL = "http://localhost:9000"
 	}
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		BodyLimit: 1024 * 1024 * 10, // 10MB
+	})
 
 	app.Use(cors.New(cors.Config{
 		AllowCredentials: true,
@@ -89,18 +91,6 @@ func handleImageUpload(c *fiber.Ctx) error {
 		return c.Status(500).SendString("image upload error")
 	}
 
-	// convert size to MB and round to 2 decimal places
-	fileSizeMB := float64(file.Size) / 1024 / 1024
-
-	// error if file size is greater than 2MB
-	if fileSizeMB > 2 {
-		log.Printf("%s tried to upload %s which is too large", ip, file.Filename)
-		return c.Status(413).JSON(fiber.Map{
-			"status":  413,
-			"message": "file size is greater than 2MB",
-		})
-	}
-
 	uniqueId := uuid.New()
 	filename := strings.Replace(uniqueId.String(), "-", "-", -1)
 	fileExt := strings.Split(file.Filename, ".")[len(strings.Split(file.Filename, "."))-1]
@@ -119,12 +109,6 @@ func handleImageUpload(c *fiber.Ctx) error {
 		"imageUrl":  imageUrl,
 		"header":    file.Header,
 		"size":      file.Size,
-	}
-
-	if fileSizeMB > 1 {
-		log.Printf("%s uploaded %s with %.2f MB", ip, image, fileSizeMB)
-	} else {
-		log.Printf("%s uploaded %s with %.2f KB", ip, image, fileSizeMB*1024)
 	}
 
 	return c.Status(201).JSON(fiber.Map{"data": imageData})
