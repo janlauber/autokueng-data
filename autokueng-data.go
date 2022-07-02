@@ -62,22 +62,26 @@ func main() {
 
 func handleImageUpload(c *fiber.Ctx) error {
 
+	// Get IP address of the client
+	ip := c.IP()
+	log.Printf("%s hit /upload", ip)
+
 	// Validate the token
 
 	token, err := CheckAuth(c)
 	if err != nil {
+		log.Printf("%s", err)
 		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
 	}
 
 	if !token.Valid {
+		log.Printf("%s", err)
 		return c.Status(401).JSON(fiber.Map{
 			"status":  401,
 			"message": "invalid token",
 		})
 	}
 
-	// Get IP address of the client
-	ip := c.IP()
 	file, err := c.FormFile("image")
 
 	if err != nil {
@@ -90,8 +94,9 @@ func handleImageUpload(c *fiber.Ctx) error {
 
 	// error if file size is greater than 2MB
 	if fileSizeMB > 2 {
-		return c.Status(400).JSON(fiber.Map{
-			"status":  400,
+		log.Printf("%s tried to upload %s which is too large", ip, file.Filename)
+		return c.Status(413).JSON(fiber.Map{
+			"status":  413,
 			"message": "file size is greater than 2MB",
 		})
 	}
@@ -100,6 +105,7 @@ func handleImageUpload(c *fiber.Ctx) error {
 	// last . is to get the extension
 	fileType := file.Filename[strings.LastIndex(file.Filename, "."):]
 	if fileType != "png" && fileType != "jpg" && fileType != "jpeg" && fileType != "gif" && fileType != "JPG" && fileType != "JPEG" && fileType != "GIF" && fileType != "PNG" {
+		log.Printf("%s tried to upload %s which is not a valid image type", ip, file.Filename)
 		return c.Status(400).JSON(fiber.Map{
 			"status":  400,
 			"message": "file type is not ending on .png or .jpg or .jpeg or .gif",
