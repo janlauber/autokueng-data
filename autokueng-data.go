@@ -166,16 +166,7 @@ func handleImageDelete(c *fiber.Ctx) error {
 }
 
 func handleGarbageCollect(c *fiber.Ctx) error {
-	token, err := CheckAuth(c)
-	if err != nil {
-		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
-	}
-	if !token.Valid {
-		return c.Status(401).JSON(fiber.Map{
-			"status":  401,
-			"message": "invalid token",
-		})
-	}
+	var err error
 
 	// Get IP address of the client
 	ip := c.IP()
@@ -192,6 +183,11 @@ func handleGarbageCollect(c *fiber.Ctx) error {
 	activeImages := activeImagesMap["activeImages"]
 	log.Printf("%s active images: %v", ip, activeImages)
 
+	if len(activeImages) == 0 {
+		log.Printf("%s no active images", ip)
+		return c.JSON(fiber.Map{"status": 200, "message": "no active images"})
+	}
+
 	// get all images in the images folder
 	files, err := ioutil.ReadDir("./images")
 	if err != nil {
@@ -199,21 +195,24 @@ func handleGarbageCollect(c *fiber.Ctx) error {
 		return c.Status(500).SendString("garbage collect error")
 	}
 
-	// loop through all images in the images folder
-	for _, file := range files {
-		// if the image is not in the active images list, delete it
-		for _, activeImage := range activeImages {
-			if file.Name() == activeImage {
-				continue
+	for _, acactiveImages := range activeImages {
+		// remove from files
+		for i, file := range files {
+			if file.Name() == acactiveImages {
+				files = append(files[:i], files[i+1:]...)
 			}
-			err = os.Remove(fmt.Sprintf("./images/%s", file.Name()))
-			if err != nil {
-				log.Println("garbage collect error: ", err)
-				return c.Status(500).SendString("garbage collect error")
-			}
-			log.Printf("%s deleted %s", ip, file.Name())
 		}
 	}
+	log.Printf("%s inactive images: %v", ip, files)
+	for _, file := range files {
+		err = os.Remove(fmt.Sprintf("./images/%s", file.Name()))
+		if err != nil {
+			log.Println("garbage collect error: ", err)
+			return c.Status(500).SendString("garbage collect error")
+		}
+	}
+
+	log.Printf("%s garbage collected", ip)
 	return c.JSON(fiber.Map{"status": 200, "message": "garbage collect complete"})
 }
 
