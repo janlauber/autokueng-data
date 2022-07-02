@@ -17,6 +17,19 @@ export URL=http://localhost:9000
 The data is stored in the following directory:
 - `/opt/autokueng-data`
 
+## Garbage collection
+Send a request to `/garbage-collect` to trigger garbage collection.  
+In the body add the images you want to keep:
+```json
+{
+  "activeImages": [
+    "image1.jpg",
+    "image2.jpg",
+    "image3.jpg"
+  ]
+}
+```
+
 ### Docker
 ```bash
 docker run -d \
