@@ -101,17 +101,6 @@ func handleImageUpload(c *fiber.Ctx) error {
 		})
 	}
 
-	// error if file type is not png or jpg or jpeg or gif or JPG or JPEG or GIF or PNG
-	// last . is to get the extension
-	fileType := file.Filename[strings.LastIndex(file.Filename, "."):]
-	if fileType != "png" && fileType != "jpg" && fileType != "jpeg" && fileType != "gif" && fileType != "JPG" && fileType != "JPEG" && fileType != "GIF" && fileType != "PNG" {
-		log.Printf("%s tried to upload %s which is not a valid image type", ip, file.Filename)
-		return c.Status(400).JSON(fiber.Map{
-			"status":  400,
-			"message": "file type is not ending on .png or .jpg or .jpeg or .gif",
-		})
-	}
-
 	uniqueId := uuid.New()
 	filename := strings.Replace(uniqueId.String(), "-", "-", -1)
 	fileExt := strings.Split(file.Filename, ".")[len(strings.Split(file.Filename, "."))-1]
