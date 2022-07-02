@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -40,7 +42,7 @@ func main() {
 	}
 
 	app := fiber.New(fiber.Config{
-		BodyLimit: 1024 * 1024 * 10, // 10MB
+		BodyLimit: 1024 * 1024 * 100, // 100MB
 	})
 
 	app.Use(cors.New(cors.Config{
@@ -55,6 +57,8 @@ func main() {
 	app.Static("/images", "./images")
 
 	app.Post("/upload", handleImageUpload)
+
+	app.Post("/garbage-collect", handleGarbageCollect)
 
 	app.Delete("/images/:imageName", handleImageDelete)
 
@@ -91,6 +95,18 @@ func handleImageUpload(c *fiber.Ctx) error {
 		return c.Status(500).SendString("image upload error")
 	}
 
+	// convert size to MB and round to 2 decimal places
+	fileSizeMB := float64(file.Size) / 1024 / 1024
+
+	// error if file size is greater than 2MB
+	if fileSizeMB > 100 {
+		log.Printf("%s tried to upload %s which is too large", ip, file.Filename)
+		return c.Status(413).JSON(fiber.Map{
+			"status":  413,
+			"message": "file size is greater than 2MB",
+		})
+	}
+
 	uniqueId := uuid.New()
 	filename := strings.Replace(uniqueId.String(), "-", "-", -1)
 	fileExt := strings.Split(file.Filename, ".")[len(strings.Split(file.Filename, "."))-1]
@@ -109,6 +125,12 @@ func handleImageUpload(c *fiber.Ctx) error {
 		"imageUrl":  imageUrl,
 		"header":    file.Header,
 		"size":      file.Size,
+	}
+
+	if fileSizeMB > 1 {
+		log.Printf("%s uploaded %s with %.2f MB", ip, image, fileSizeMB)
+	} else {
+		log.Printf("%s uploaded %s with %.2f KB", ip, image, fileSizeMB*1024)
 	}
 
 	return c.Status(201).JSON(fiber.Map{"data": imageData})
@@ -141,6 +163,57 @@ func handleImageDelete(c *fiber.Ctx) error {
 	}
 	log.Printf("%s deleted %s", ip, imageName)
 	return c.JSON(fiber.Map{"status": 200, "message": "image deleted successfully"})
+}
+
+func handleGarbageCollect(c *fiber.Ctx) error {
+	var err error
+
+	// Get IP address of the client
+	ip := c.IP()
+	log.Printf("%s hit /garbage-collect", ip)
+
+	body := c.Body()
+	// parse body as JSON to map a
+	activeImagesMap := make(map[string][]string)
+	err = json.Unmarshal(body, &activeImagesMap)
+	if err != nil {
+		log.Println("garbage collect error: ", err)
+		return c.Status(500).SendString("garbage collect error")
+	}
+	activeImages := activeImagesMap["activeImages"]
+	log.Printf("%s active images: %v", ip, activeImages)
+
+	if len(activeImages) == 0 {
+		log.Printf("%s no active images", ip)
+		return c.JSON(fiber.Map{"status": 200, "message": "no active images"})
+	}
+
+	// get all images in the images folder
+	files, err := ioutil.ReadDir("./images")
+	if err != nil {
+		log.Println("garbage collect error: ", err)
+		return c.Status(500).SendString("garbage collect error")
+	}
+
+	for _, acactiveImages := range activeImages {
+		// remove from files
+		for i, file := range files {
+			if file.Name() == acactiveImages {
+				files = append(files[:i], files[i+1:]...)
+			}
+		}
+	}
+	log.Printf("%s inactive images: %v", ip, files)
+	for _, file := range files {
+		err = os.Remove(fmt.Sprintf("./images/%s", file.Name()))
+		if err != nil {
+			log.Println("garbage collect error: ", err)
+			return c.Status(500).SendString("garbage collect error")
+		}
+	}
+
+	log.Printf("%s garbage collected", ip)
+	return c.JSON(fiber.Map{"status": 200, "message": "garbage collect complete"})
 }
 
 func CheckAuth(c *fiber.Ctx) (*jwt.Token, error) {
