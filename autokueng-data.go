@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -55,6 +57,8 @@ func main() {
 	app.Static("/images", "./images")
 
 	app.Post("/upload", handleImageUpload)
+
+	app.Post("/garbage-collect", handleGarbageCollect)
 
 	app.Delete("/images/:imageName", handleImageDelete)
 
@@ -159,6 +163,58 @@ func handleImageDelete(c *fiber.Ctx) error {
 	}
 	log.Printf("%s deleted %s", ip, imageName)
 	return c.JSON(fiber.Map{"status": 200, "message": "image deleted successfully"})
+}
+
+func handleGarbageCollect(c *fiber.Ctx) error {
+	token, err := CheckAuth(c)
+	if err != nil {
+		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+	if !token.Valid {
+		return c.Status(401).JSON(fiber.Map{
+			"status":  401,
+			"message": "invalid token",
+		})
+	}
+
+	// Get IP address of the client
+	ip := c.IP()
+	log.Printf("%s hit /garbage-collect", ip)
+
+	body := c.Body()
+	// parse body as JSON to map a
+	activeImagesMap := make(map[string][]string)
+	err = json.Unmarshal(body, &activeImagesMap)
+	if err != nil {
+		log.Println("garbage collect error: ", err)
+		return c.Status(500).SendString("garbage collect error")
+	}
+	activeImages := activeImagesMap["activeImages"]
+	log.Printf("%s active images: %v", ip, activeImages)
+
+	// get all images in the images folder
+	files, err := ioutil.ReadDir("./images")
+	if err != nil {
+		log.Println("garbage collect error: ", err)
+		return c.Status(500).SendString("garbage collect error")
+	}
+
+	// loop through all images in the images folder
+	for _, file := range files {
+		// if the image is not in the active images list, delete it
+		for _, activeImage := range activeImages {
+			if file.Name() == activeImage {
+				continue
+			}
+			err = os.Remove(fmt.Sprintf("./images/%s", file.Name()))
+			if err != nil {
+				log.Println("garbage collect error: ", err)
+				return c.Status(500).SendString("garbage collect error")
+			}
+			log.Printf("%s deleted %s", ip, file.Name())
+		}
+	}
+	return c.JSON(fiber.Map{"status": 200, "message": "garbage collect complete"})
 }
 
 func CheckAuth(c *fiber.Ctx) (*jwt.Token, error) {
